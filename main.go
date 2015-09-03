@@ -12,7 +12,7 @@ import (
 
 type Page struct {
 	Team string
-	Jira Jira // json format
+	Jira Jira
 }
 
 // JSON data type we return to manipulate for d3 visualization.
@@ -22,6 +22,7 @@ type Jira struct {
 }
 
 const JIRA_SERVER = "https://jira.corp.squareup.com"
+const STASH_SERVER = "https://stash.corp.squareup.com"
 const TEAM_NAME = "card-processing"
 
 var TEAM_MEMBERS = [...]string{
@@ -34,21 +35,22 @@ var TEAM_MEMBERS = [...]string{
 	"ryder",
 }
 
-func callJiraGet(resource string) http.Response {
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+func client() http.Client {
+	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	return http.Client{Transport: tr}
+}
+
+func callGet(server string, resource string, f func(http.Request)) http.Response {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s", server, resource), nil)
+	if f != nil {
+		f(*req)
 	}
-	client := &http.Client{
-		Transport: tr,
-	}
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s", JIRA_SERVER, resource), nil)
-	req.SetBasicAuth("processing-bot", "n2nCmWF6")
+	client := client()
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Println(resp.Status)
-	log.Println(resp.Header)
+	log.Printf("GET %s: %s\n", server, resp.Status)
 	return *resp
 }
 
@@ -70,9 +72,11 @@ func parseToJson(resp http.Response) map[string]interface{} {
 
 func lookupFromJira() Jira {
 	// query for stories unresolved per person
-	resp := callJiraGet("/rest/api/2/filter/18720") // TODO new filter
-	parseToJson(resp)
-	//fmt.Printf("id is %s", data["id"])
+	parseToJson(callGet(JIRA_SERVER, "/rest/api/2/filter/18720",
+		func(req http.Request) { req.SetBasicAuth("processing-bot", "n2nCmWF6") }))
+
+	// query for pull request contributions per person (created
+	parseToJson(callGet(STASH_SERVER, "/rest/api/1.0/projects", nil))
 
 	return Jira{
 		Name:           "paul",
@@ -88,8 +92,6 @@ func debugPrettyPrint(data map[string]interface{}) {
 	fmt.Println(string(b))
 }
 
-// TODO lookupFromStash
-
 func teamHandler(w http.ResponseWriter, r *http.Request) {
 	p := &Page{
 		Team: TEAM_NAME,
@@ -100,8 +102,7 @@ func teamHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	fmt.Println("hi")
-	fmt.Println(fmt.Sprintf("/team/%s", TEAM_NAME))
+	fmt.Println("starting up...")
 	http.HandleFunc(fmt.Sprintf("/team/%s", TEAM_NAME), teamHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
