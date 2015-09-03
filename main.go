@@ -11,14 +11,18 @@ import (
 )
 
 type Page struct {
-	Team string
-	Jira Jira
+	Team       string
+	JiraStats  JiraStats
+	StashStats StashStats
 }
 
 // JSON data type we return to manipulate for d3 visualization.
-type Jira struct {
+type JiraStats struct {
 	Name           string
 	CompletedCount int
+}
+
+type StashStats struct {
 }
 
 const JIRA_SERVER = "https://jira.corp.squareup.com"
@@ -70,18 +74,22 @@ func parseToJson(resp http.Response) map[string]interface{} {
 	return data
 }
 
-func lookupFromJira() Jira {
+func lookupFromJira() JiraStats {
 	// query for stories unresolved per person
 	parseToJson(callGet(JIRA_SERVER, "/rest/api/2/filter/18720",
 		func(req http.Request) { req.SetBasicAuth("processing-bot", "n2nCmWF6") }))
 
-	// query for pull request contributions per person (created
-	parseToJson(callGet(STASH_SERVER, "/rest/api/1.0/projects", nil))
-
-	return Jira{
+	return JiraStats{
 		Name:           "paul",
 		CompletedCount: 10,
 	}
+}
+
+func lookupFromStash() StashStats {
+	// query for pull request contributions per person (created
+	parseToJson(callGet(STASH_SERVER, "/rest/api/1.0/projects", nil))
+
+	return StashStats{}
 }
 
 func debugPrettyPrint(data map[string]interface{}) {
@@ -94,8 +102,9 @@ func debugPrettyPrint(data map[string]interface{}) {
 
 func teamHandler(w http.ResponseWriter, r *http.Request) {
 	p := &Page{
-		Team: TEAM_NAME,
-		Jira: lookupFromJira(),
+		Team:       TEAM_NAME,
+		JiraStats:  lookupFromJira(),
+		StashStats: lookupFromStash(),
 	}
 	t, _ := template.ParseFiles("team.html")
 	t.Execute(w, p)
