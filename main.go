@@ -23,10 +23,23 @@ type JiraStats struct {
 }
 
 type StashStats struct {
+	/*
+	list name --> [
+	{
+		project: name
+		opened: [{created_at: datetime, }...]
+	}, ... multiple per name
+	 */
+	SearchedStashProjects []string
 }
 
 const JIRA_SERVER = "https://jira.corp.squareup.com"
 const STASH_SERVER = "https://stash.corp.squareup.com"
+var STASH_PROJECTS = []string{ //TODO make map -> lists and have slugs
+	"java",
+	"web",
+	//"tarkin",
+}
 const TEAM_NAME = "card-processing"
 
 var TEAM_MEMBERS = [...]string{
@@ -89,7 +102,9 @@ func lookupFromStash() StashStats {
 	// query for pull request contributions per person (created
 	parseToJson(callGet(STASH_SERVER, "/rest/api/1.0/projects", nil))
 
-	return StashStats{}
+	return StashStats{
+		SearchedStashProjects: STASH_PROJECTS,
+	}
 }
 
 func debugPrettyPrint(data map[string]interface{}) {
