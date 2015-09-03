@@ -15,12 +15,13 @@ type Page struct {
 	Jira Jira // json format
 }
 
-// JSON data type we return to populate d3.
+// JSON data type we return to manipulate for d3 visualization.
 type Jira struct {
 	Name           string
 	CompletedCount int
 }
 
+const JIRA_SERVER = "https://jira.corp.squareup.com"
 const TEAM_NAME = "card-processing"
 
 var TEAM_MEMBERS = [...]string{
@@ -33,23 +34,25 @@ var TEAM_MEMBERS = [...]string{
 	"ryder",
 }
 
-func lookupFromJira() Jira {
+func callJiraGet(resource string) http.Response {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{
 		Transport: tr,
 	}
-	req, err := http.NewRequest("GET", "https://jira.corp.squareup.com/rest/api/2/filter/18720", nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s", JIRA_SERVER, resource), nil)
 	req.SetBasicAuth("processing-bot", "n2nCmWF6")
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Println(resp.Status)
+	log.Println(resp.Header)
+	return *resp
+}
 
-	fmt.Println(resp.Status)
-	fmt.Println(resp.Header)
-
+func parseToJson(resp http.Response) map[string]interface{} {
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -61,9 +64,15 @@ func lookupFromJira() Jira {
 	if err != nil {
 		log.Fatal(err)
 	}
+	debugPrettyPrint(data)
+	return data
+}
 
-	prettyPrint(data)
-	fmt.Printf("id is %s", data["id"])
+func lookupFromJira() Jira {
+	// query for stories unresolved per person
+	resp := callJiraGet("/rest/api/2/filter/18720") // TODO new filter
+	parseToJson(resp)
+	//fmt.Printf("id is %s", data["id"])
 
 	return Jira{
 		Name:           "paul",
@@ -71,7 +80,7 @@ func lookupFromJira() Jira {
 	}
 }
 
-func prettyPrint(data map[string]interface{}) {
+func debugPrettyPrint(data map[string]interface{}) {
 	b, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		log.Fatal(err)
