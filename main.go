@@ -1,22 +1,39 @@
 package main
 
 import (
+	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
-	"crypto/tls"
-	"strings"
-	"encoding/json"
-	"github.com/jmoiron/jsonq"
-	"io/ioutil"
 )
 
 type Page struct {
 	Team string
+	Jira Jira // json format
 }
 
-func getJiraData() {
+// JSON data type we return to populate d3.
+type Jira struct {
+	Name           string
+	CompletedCount int
+}
+
+const TEAM_NAME = "card-processing"
+
+var TEAM_MEMBERS = [...]string{
+	"botros",
+	"davis",
+	"dsimms",
+	"jaw",
+	"noam",
+	"riley",
+	"ryder",
+}
+
+func lookupFromJira() Jira {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
@@ -40,26 +57,42 @@ func getJiraData() {
 	}
 
 	data := map[string]interface{}{}
-	
-	dec := json.NewDecoder(strings.NewReader(string(body)))
-	dec.Decode(&data)
-	jq := jsonq.NewQuery(data)
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	fmt.Println(jq)
+	prettyPrint(data)
+	fmt.Printf("id is %s", data["id"])
+
+	return Jira{
+		Name:           "paul",
+		CompletedCount: 10,
+	}
 }
 
-// getStashData
+func prettyPrint(data map[string]interface{}) {
+	b, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(string(b))
+}
+
+// TODO lookupFromStash
 
 func teamHandler(w http.ResponseWriter, r *http.Request) {
-	getJiraData()
-	p := &Page{Team: "card processing"}
+	p := &Page{
+		Team: TEAM_NAME,
+		Jira: lookupFromJira(),
+	}
 	t, _ := template.ParseFiles("team.html")
 	t.Execute(w, p)
 }
 
 func main() {
 	fmt.Println("hi")
-
-	http.HandleFunc("/team/card-processing", teamHandler)
+	fmt.Println(fmt.Sprintf("/team/%s", TEAM_NAME))
+	http.HandleFunc(fmt.Sprintf("/team/%s", TEAM_NAME), teamHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
