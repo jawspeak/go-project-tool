@@ -1,21 +1,31 @@
 package main
 
 import (
+	"flag"
+	"os"
+
 	"github.com/jawspeak/go-project-tool/stash-stats/data"
 	"github.com/jawspeak/go-project-tool/stash-stats/fetch"
 	stashrestapiclientsetup "github.com/jawspeak/go-stash-restclient/config"
 )
 
 func main() {
-	stashrestapiclientsetup.SetupConfig()
+	var mode = flag.String("mode", "", "[network|local] to use the local cache of data or re-fetch it")
+	flag.Parse()
 
 	var cache data.Cache
-	cache = fetch.FetchData()
-
-	// Fetching is probably slow, so store for playing with it later.
-	// cache = data.LoadGob("./pr-data-pull.dat")
-
-	cache.SaveGob("./pr-data-pull.dat")
-
-	cache.SaveJson("./pr-data-pull.json")
+	switch *mode {
+	case "":
+		flag.Usage()
+		os.Exit(1)
+	case "remote":
+		stashrestapiclientsetup.SetupConfig()
+		cache = fetch.FetchData()
+		// Fetching is probably slow, so store for playing with it later.
+		cache.SaveGob("./pr-data-pull.dat")
+		cache.SaveJson("./pr-data-pull.json")
+	case "local":
+		cache = data.LoadGob("./pr-data-pull.dat")
+		cache.SaveJson("./pr-data-pull.json")
+	}
 }
