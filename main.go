@@ -7,13 +7,15 @@ import (
 	"net/http"
 )
 
+const PORT = ":8080"
+
 type Page struct {
 	Title string
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	p := &Page{Title: "Developers Stash Dashboard"}
-	t, _ := template.ParseFiles("templates/index.thtml")
+	t, _ := template.ParseFiles("templates/base.thtml", "templates/stash.thtml")
 	t.Execute(w, p)
 }
 
@@ -27,8 +29,8 @@ func doNotCache(h http.Handler) http.Handler {
 }
 
 func main() {
-	fmt.Println("started up!")
+	fmt.Printf("started up!\nhttp://localhost%s/\n", PORT)
 	http.Handle("/assets/", doNotCache(http.StripPrefix("/assets", http.FileServer(http.Dir("assets")))))
 	http.HandleFunc("/", indexHandler)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(PORT, nil))
 }

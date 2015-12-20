@@ -10,26 +10,16 @@
         crossorigin="anonymous">
         <!-- TODO when they add this        integrity="sha384-XXXXXXXX" -->
   <link rel="stylesheet" href="/assets/styles.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+  <script src="http://github.hubspot.com/tether/dist/js/tether.js"></script>
 </head>
 <body>
   <div class="navbar navbar-dark navbar-fixed-top bg-inverse">{{.Title}}</div>
   <div class="container">
-    <!--TODO time range filter, default last 30 days-->
-    {{  }}
-    <div>
-      <h4>{{.Name}}</h4>
-      <ul>
-        <li>{{.PRTotal}} PRs</li> ({{.PRMerged}} merged)
-        <li>{{.Commits}} commits</li>
-        <li>Commented on {{.PRCommentTotal}} other people's PRs</li>
-      </ul>
-    </div>
-    {{ end }}
+
+    {{ template "body" . }}
 
   </div>
-
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
-  <script src="http://github.hubspot.com/tether/dist/js/tether.js"></script>
   <script src="https://cdn.rawgit.com/twbs/bootstrap/v4-dev/dist/js/bootstrap.js"
           crossorigin="anonymous"></script>
           <!-- TODO when available integrity="sha384-XXXXXXXX" -->
