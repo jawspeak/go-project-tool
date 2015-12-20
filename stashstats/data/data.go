@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"github.com/jawspeak/go-project-tool/stash-stats/util"
+	"github.com/jawspeak/go-project-tool/stashstats/util"
 )
 
 type Cache struct {

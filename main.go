@@ -28,7 +28,7 @@ func doNotCache(h http.Handler) http.Handler {
 
 func main() {
 	fmt.Println("started up!")
-	http.Handle("/static/", doNotCache(http.StripPrefix("/static", http.FileServer(http.Dir("static")))))
+	http.Handle("/assets/", doNotCache(http.StripPrefix("/assets", http.FileServer(http.Dir("assets")))))
 	http.HandleFunc("/", indexHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

@@ -4,8 +4,8 @@ import (
 	"flag"
 	"os"
 
-	"github.com/jawspeak/go-project-tool/stash-stats/data"
-	"github.com/jawspeak/go-project-tool/stash-stats/fetch"
+	"github.com/jawspeak/go-project-tool/stashstats/data"
+	"github.com/jawspeak/go-project-tool/stashstats/fetch"
 	stashrestapiclientsetup "github.com/jawspeak/go-stash-restclient/config"
 )
 
@@ -26,6 +26,6 @@ func main() {
 		cache.SaveJson("./pr-data-pull.json")
 	case "local":
 		cache = data.LoadGob("./pr-data-pull.dat")
-		cache.SaveJson("./pr-data-pull.json")
+		cache.SaveJson("../assets/pr-data-pull.json")
 	}
 }

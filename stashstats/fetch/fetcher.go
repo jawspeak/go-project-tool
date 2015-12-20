@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/go-swagger/go-swagger/vendor/github.com/davecgh/go-spew/spew"
-	"github.com/jawspeak/go-project-tool/stash-stats/data"
-	"github.com/jawspeak/go-project-tool/stash-stats/util"
+	"github.com/jawspeak/go-project-tool/stashstats/data"
+	"github.com/jawspeak/go-project-tool/stashstats/util"
 	apiclient "github.com/jawspeak/go-stash-restclient/client"
 	"github.com/jawspeak/go-stash-restclient/client/operations"
 	"github.com/jawspeak/go-stash-restclient/config"
@@ -70,7 +70,6 @@ func FetchData() (cache data.Cache) {
 	for _, confProjects := range conf.Projects {
 		for _, confAuthor := range conf.Usernames {
 			for _, confRepo := range confProjects.Repos {
-				// TODO combine authors in one repo and batch the work amongst all of them at once.
 				wg.Add(1)
 				workChan <- fetchOneWork{project: confProjects.Project,
 					repo:          confRepo,

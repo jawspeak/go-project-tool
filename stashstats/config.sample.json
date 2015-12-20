@@ -1,0 +1,28 @@
+// Config file you use to connect to your repository.
+// Rename to config.json when you're ready for your environment.
+// Reminder - json doesn't accept comments usually, we strip these out.
+{
+  "host": "stash.corp.example.com",
+  "username": "your-username",
+  // blank password, so it asks for it.
+  "password": "",
+
+  // How far back to fetch data
+  "look_back_days": 30,
+
+  "stash_projects": [
+    {
+      "project": "GO",
+      "repos": ["repyxyz"]
+    }
+  ],
+
+  "stats_for_these_usernames": [
+    "ldapname1",
+    "ldapname2",
+    "sally",
+    "jochan",
+    "xin",
+    "rajeev"
+  ]
+}
