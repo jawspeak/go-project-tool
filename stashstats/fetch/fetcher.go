@@ -41,7 +41,7 @@ type fetchOneWork struct {
 }
 
 const (
-	LIMIT           int64 = 500 // How many to fetch at a time
+	LIMIT           int64 = 100 // How many to fetch at a time
 	MAX_CONCURRENCY       = 20
 )
 
@@ -73,7 +73,8 @@ func FetchData() (cache data.Cache) {
 		for _, confAuthor := range conf.Usernames {
 			for _, confRepo := range confProjects.Repos {
 				wg.Add(1)
-				workChan <- fetchOneWork{project: confProjects.Project,
+				workChan <- fetchOneWork{
+					project:              confProjects.Project,
 					repo:                 confRepo,
 					author:               confAuthor,
 					resultChan:           resultChan,
@@ -112,22 +113,24 @@ func fetchOne(work *fetchOneWork) {
 		work.wg.Done()
 	}()
 
-	limitHelper := LIMIT // ugly http://stackoverflow.com/questions/30716354/how-do-i-do-a-literal-int64-in-go
 	start := int64(0)
 	for {
-		roleHelper := "AUTHOR"
+		limitHelper := LIMIT // ugly http://stackoverflow.com/questions/30716354/how-do-i-do-a-literal-int64-in-go
+		orderHelper := "NEWEST"
+		role1Helper := "AUTHOR"
 		stateHelper := "ALL"
 		prParams := operations.GetPullRequestsParams{
 			Project:   work.project,
 			Repo:      work.repo,
 			Username1: &work.author,
-			Role1:     &roleHelper,
+			Role1:     &role1Helper,
 			Limit:     &limitHelper,
+			Order:     &orderHelper,
 			Start:     &start,
 			State:     &stateHelper}
 		fmt.Printf("> %s\n", spew.Sdump(prParams))
 		pullRequests, err := apiclient.Default.Operations.GetPullRequests(prParams)
-		if util.FatalIfErrUnless(err, okIf404) {
+		if util.FatalIfErrUnless(err, okIf404, prParams) {
 			continue // skip if error
 		}
 		fmt.Printf("< %s\n", spew.Sdump(pullRequests.Payload))
@@ -152,7 +155,7 @@ func fetchOne(work *fetchOneWork) {
 				Limit:         &limitHelper}
 			fmt.Printf(">> %s\n", spew.Sdump(actParams))
 			activities, err := apiclient.Default.Operations.GetPullRequestActivities(actParams)
-			if util.FatalIfErrUnless(err, okIf404) {
+			if util.FatalIfErrUnless(err, okIf404, actParams) {
 				continue
 			}
 			fmt.Printf("<< %s\n", spew.Sdump(activities))
