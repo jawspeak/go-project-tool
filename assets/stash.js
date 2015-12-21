@@ -1,4 +1,5 @@
 var render = function() {
+  var $dateFormat = d3.time.format("%Y-%m-%d");
 
   var authorStats = function(data) {
     var byAuthor = d3.map()
@@ -9,11 +10,13 @@ var render = function() {
           total_comments_left: 0,
           others_prs_commented_in: 0,
           others_prs_approved: 0,
+          count_merged_by_last_updated_date: {},
           full_name: pr.author_fullname});
       }
       byAuthor.get(pr.author_ldap).prs.push(pr);
       console.log(pr);
     });
+
     data.pull_requests.forEach(function(pr) {
       for (commenter in pr.comments_by_author_ldap) {
         if (byAuthor.get(commenter)) { // if someone we care about
@@ -27,6 +30,13 @@ var render = function() {
         if (byAuthor.get(approver) && pr.author_ldap != approver) {
           byAuthor.get(approver).others_prs_approved += 1;
         }
+      }
+      if (pr.state == "MERGED") {
+        var whenDone = $dateFormat(new Date(pr.updated_datetime * 1000));
+        if (!byAuthor.get(pr.author_ldap).count_merged_by_last_updated_date[whenDone]) {
+          byAuthor.get(pr.author_ldap).count_merged_by_last_updated_date[whenDone] = 0;
+        }
+        byAuthor.get(pr.author_ldap).count_merged_by_last_updated_date[whenDone] += 1;
       }
     });
 
@@ -97,14 +107,18 @@ var render = function() {
           .links(links)
           .start();
 
-      var prDiv = personContainer
+      var prAnchor = personContainer
           .append("div")
-          .attr("class", onePr.state === "OPEN" ? "pr-container unmerged" : "pr-container")
+          .attr("class", "pr-container")
           .append("a")
-          .attr("href", onePr.self_url);
-      prDiv.append("div").append("small").text(onePr.title);
+          .attr("href", onePr.self_url)
+      prAnchor
+          .append("small").text(onePr.title);
+      if (onePr.state == "OPEN") {
+        prAnchor.append("span").attr("class", "label label-danger small").text("OPEN");
+      }
 
-      var svg = prDiv
+      var svg = prAnchor
           .append("svg")
           .attr("width", width)
           .attr("height", height);
@@ -153,17 +167,74 @@ var render = function() {
     })
   }
 
-  var renderForcePRPlot = function(data) {
+  var renderCalendar = function(personContainer, author, stats) {
+    // Inspired by http://bl.ocks.org/mbostock/4063318
+    var width = 950, height = 130, cellSize = 17;
+
+    var svg = personContainer.selectAll("svg.calendar")
+        .data(d3.range(2015, 2016))
+      .enter().append("svg")
+        .attr("class", "calendar RdYlGn")
+        .attr("width", width)
+        .attr("height", height)
+      .append("g")
+        .attr("transform", "translate(" + ((width - cellSize * 53) / 2) + "," + (height - cellSize * 7 - 1) + ")");
+
+    svg.append("text")
+        .attr("transform", "translate(-6," + cellSize * 3.5 + ")rotate(-90)")
+        .style("text-anchor", "middle")
+        .text(function(d) { return d; });
+
+    var rect = svg.selectAll(".day")
+        .data(function(d) { return d3.time.days(new Date(d, 0, 1), new Date(d + 1, 0, 1)); })
+        .enter().append("rect")
+        .attr("class", "day")
+        .attr("width", cellSize)
+        .attr("height", cellSize)
+        .attr("x", function(d) { return d3.time.weekOfYear(d) * cellSize; })
+        .attr("y", function(d) { return d.getDay() * cellSize; })
+        .datum($dateFormat);
+
+    rect.append("title")
+        .text(function(d) { return d; });
+
+    svg.selectAll(".month")
+        .data(function(d) { return d3.time.months(new Date(d, 0, 1), new Date(d + 1, 0, 1)); })
+        .enter().append("path")
+        .attr("class", "month")
+        .attr("d", monthPath);
+
+    var color = d3.scale.quantize()
+        .domain([0, 6])// TODO find max # PR's, but this now is probably crazy high enough.
+        .range(d3.range(11).map(function(d) { return "q" + d + "-11"; }));
+
+    rect.filter(function(d) { return d in stats.count_merged_by_last_updated_date })
+        .attr("class",
+            function(d) { return "day " + color(stats.count_merged_by_last_updated_date[d]); })
+        .select("title")
+        .text(function(d) { return d + ": " +
+            stats.count_merged_by_last_updated_date[d] + " merged"; })
+
+    function monthPath(t0) {
+      var t1 = new Date(t0.getFullYear(), t0.getMonth() + 1, 0),
+          d0 = t0.getDay(), w0 = d3.time.weekOfYear(t0),
+          d1 = t1.getDay(), w1 = d3.time.weekOfYear(t1);
+      return "M" + (w0 + 1) * cellSize + "," + d0 * cellSize
+          + "H" + w0 * cellSize + "V" + 7 * cellSize
+          + "H" + w1 * cellSize + "V" + (d1 + 1) * cellSize
+          + "H" + (w1 + 1) * cellSize + "V" + 0
+          + "H" + (w0 + 1) * cellSize + "Z";
+    }
+
+  };
+
+  d3.json('/assets/pr-data-pull.json', function(data) {
     var byAuthor = authorStats(data);
     byAuthor.forEach(function(author, stats) {
       var personContainer = renderAuthorHeader(author, stats);
+      renderCalendar(personContainer, author, stats);
       renderPrs(byAuthor, personContainer, stats);
     });
-
-  }
-
-  d3.json('/assets/pr-data-pull.json', function(data) {
-    renderForcePRPlot(data)
   });
 };
 
