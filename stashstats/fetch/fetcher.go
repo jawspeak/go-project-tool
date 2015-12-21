@@ -41,7 +41,7 @@ type fetchOneWork struct {
 }
 
 const (
-	LIMIT           int64 = 100 // How many to fetch at a time
+	LIMIT           int64 = 5 // How many to fetch at a time
 	MAX_CONCURRENCY       = 20
 )
 
@@ -53,9 +53,10 @@ func FetchData() (cache data.Cache) {
 	fmt.Printf("Processing for config: %+v\n", conf)
 
 	var wg sync.WaitGroup
-	workChan := make(chan fetchOneWork, 100)
-	resultChan := make(chan data.PullRequest, 100)
+	workChan := make(chan fetchOneWork)
+	resultChan := make(chan data.PullRequest)
 
+	// Many goroutines to enqueue up results to do work.
 	for i := 0; i < MAX_CONCURRENCY; i++ {
 		go func() {
 			for work := range workChan {
@@ -66,13 +67,22 @@ func FetchData() (cache data.Cache) {
 			}
 		}()
 	}
+	cache = data.Cache{}
+	// One goroutine to work on the results. Start it now so it can start working.
+	go func() {
+		for result := range resultChan {
+			cache.PullRequests = append(cache.PullRequests, result)
+			wg.Done()
+		}
+	}()
+
 	lookBackUntil := time.Now().Unix() - int64(conf.LookBackDays*24*60*60)
 	fmt.Println("All workers are started, looking back until: ", time.Unix(lookBackUntil, 0))
 
+	var workEnqueed []string
 	for _, confProjects := range conf.Projects {
 		for _, confAuthor := range conf.Usernames {
 			for _, confRepo := range confProjects.Repos {
-				wg.Add(1)
 				workChan <- fetchOneWork{
 					project:              confProjects.Project,
 					repo:                 confRepo,
@@ -81,26 +91,19 @@ func FetchData() (cache data.Cache) {
 					wg:                   &wg,
 					lookBackUntil:        lookBackUntil,
 					ignoreCommentAuthors: conf.IgnoreCommentUsernames}
+				workEnqueed = append(workEnqueed, fmt.Sprintf("%v-%v-%v", confProjects.Project, confAuthor, confRepo))
 				beNiceFuzzySleep()
 			}
 		}
 	}
 
-	fmt.Println("All work is enqueued")
+	fmt.Println("All work is enqueued", workEnqueed)
 	// close the channel when all are done
-	go func() {
-		fmt.Println("<anonym> to wait")
-		wg.Wait()
-		fmt.Println("<anonym> done waiting")
-		close(workChan) // ok to close both
-		close(resultChan)
-		fmt.Println("<anonym> channel closed")
-	}()
-
-	cache = data.Cache{}
-	for result := range resultChan {
-		cache.PullRequests = append(cache.PullRequests, result)
-	}
+	wg.Wait()
+	fmt.Println("done waiting")
+	close(workChan) // ok to close both
+	close(resultChan)
+	fmt.Println("channels closed")
 
 	// sort pull requests by author or something else if i cared, but i don't.
 	return cache
@@ -110,9 +113,10 @@ func FetchData() (cache data.Cache) {
 func fetchOne(work *fetchOneWork) {
 	defer func() {
 		beNiceFuzzySleep()
-		work.wg.Done()
+		work.wg.Done() // Remove 1 we added at the top.
 	}()
 
+	work.wg.Add(1) // Add 1 at the top, and pop that when done in defer. Also add one every time we push to the resultChan.
 	start := int64(0)
 	for {
 		limitHelper := LIMIT // ugly http://stackoverflow.com/questions/30716354/how-do-i-do-a-literal-int64-in-go
@@ -136,14 +140,12 @@ func fetchOne(work *fetchOneWork) {
 		fmt.Printf("< %s\n", spew.Sdump(pullRequests.Payload))
 		log.Printf("fetched %d results", pullRequests.Payload.Size)
 
-		if pullRequests.Payload.IsLastPage {
-			break
-		}
 		start = pullRequests.Payload.NextPageStart
 
 		for _, pr := range pullRequests.Payload.Values {
 			if msToSec(pr.CreatedDate) < work.lookBackUntil {
-				fmt.Println("Won't look back any further, stopping at: ",
+				fmt.Println("Won't look back any further, skipping", pr.Author.User.Slug,
+					"'s PR ", pr.ID, " at: ",
 					time.Unix(msToSec(pr.CreatedDate), 0))
 				break
 			}
@@ -236,7 +238,11 @@ func fetchOne(work *fetchOneWork) {
 				CommentsByAuthorLdap:  commentsByAuthorLdap,
 				ApprovalsByAuthorLdap: approvalsByAuthorLdap,
 			}
+			work.wg.Add(1)
 			fmt.Println("pushed to resultChan")
+		}
+		if pullRequests.Payload.IsLastPage {
+			break
 		}
 	}
 }
