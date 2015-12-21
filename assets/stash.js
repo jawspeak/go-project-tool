@@ -2,36 +2,63 @@ var render = function() {
 
   var authorStats = function(data) {
     var byAuthor = d3.map()
-    data.PullRequests.forEach(function (e) {
-      if (!byAuthor.has(e.author_ldap)) {
-        byAuthor.set(e.author_ldap, []);
+    data.pull_requests.forEach(function (pr) {
+      if (!byAuthor.has(pr.author_ldap)) {
+        byAuthor.set(pr.author_ldap, {
+          prs: [],
+          total_comments_left: 0,
+          others_prs_commented_in: 0,
+          others_prs_approved: 0,
+          full_name: pr.author_fullname});
       }
-      byAuthor.get(e.author_ldap).push(e);
+      byAuthor.get(pr.author_ldap).prs.push(pr);
+      console.log(pr);
     });
-    //byAuthor.forEach(function(k,v) {
-    //  v.sort(function(a,b){
-    //    return a.created_datetime - b.created_datetime;
-    //  });
-    //});
+    data.pull_requests.forEach(function(pr) {
+      for (commenter in pr.comments_by_author_ldap) {
+        if (byAuthor.get(commenter)) { // if someone we care about
+          byAuthor.get(commenter).total_comments_left += pr.comments_by_author_ldap[commenter];
+          if (pr.author_ldap != commenter) {
+            byAuthor.get(commenter).others_prs_commented_in += 1;
+          }
+        }
+      }
+      for (approver in pr.approvals_by_author_ldap) {
+        if (byAuthor.get(approver) && pr.author_ldap != approver) {
+          byAuthor.get(approver).others_prs_approved += 1;
+        }
+      }
+    });
+
+    byAuthor.forEach(function(k,v) {
+      v.prs.sort(function(a,b){
+        return b.created_datetime - a.created_datetime;
+      });
+    });
     return byAuthor;
   };
 
-  var renderAuthorHeader = function(author, prs) {
+  var renderAuthorHeader = function(author, stats) {
     var personContainer = d3.selectAll(".teamlisting")
         .append("div")
         .attr("class", "person");
-    personContainer.append("h4").text(author);
-    personContainer.append("ul")
-        .append("li").text("" + prs.length + " PRs") // TODO (N Merged)
-        // .append("li").text("Commits")
-        .append("li").text("Commented in __ other people's PR's")
+    personContainer.append("h4").text(stats.full_name);
+
+    var merged = stats.prs.filter(function(pr) { return pr.state === "MERGED";}).length;
+
+    var ul = personContainer.append("ul");
+    ul.append("li").text("" + stats.prs.length + " PRs").append("small").text(" (" + merged + " merged)");
+    ul.append("li").text("Commented in " + stats.others_prs_commented_in + " other people's PRs ")
+        .append("small").text("(Approved " + stats.others_prs_approved + " PR's, left "
+        + stats.total_comments_left + " total comments)");
     return personContainer;
   };
 
-  var renderPrs = function(byAuthor, personContainer, prs) {
+  var renderPrs = function(byAuthor, personContainer, stats) {
     var width = 150,
         height = 75;
-    prs.forEach(function(onePr) {
+
+    stats.prs.forEach(function(onePr) {
       /* Creates 2 fixed columns of nodes:
        PR       comment authors
        |      /----- A1
@@ -121,9 +148,9 @@ var render = function() {
 
   var renderForcePRPlot = function(data) {
     var byAuthor = authorStats(data);
-    byAuthor.forEach(function(author, prs) {
-      var personContainer = renderAuthorHeader(author, prs);
-      renderPrs(byAuthor, personContainer, prs);
+    byAuthor.forEach(function(author, stats) {
+      var personContainer = renderAuthorHeader(author, stats);
+      renderPrs(byAuthor, personContainer, stats);
     });
 
   }

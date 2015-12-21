@@ -41,7 +41,7 @@ type fetchOneWork struct {
 }
 
 const (
-	LIMIT           int64 = 5 // How many to fetch at a time
+	LIMIT           int64 = 25 // How many to fetch at a time
 	MAX_CONCURRENCY       = 20
 )
 
@@ -237,6 +237,7 @@ func fetchOne(work *fetchOneWork) {
 				SecondsOpen:           msToSec(pr.UpdatedDate - pr.CreatedDate),
 				CommentsByAuthorLdap:  commentsByAuthorLdap,
 				ApprovalsByAuthorLdap: approvalsByAuthorLdap,
+				State: pr.State,
 			}
 			work.wg.Add(1)
 			fmt.Println("pushed to resultChan")

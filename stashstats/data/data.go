@@ -10,33 +10,25 @@ import (
 )
 
 type Cache struct {
-	PullRequests []PullRequest
+	PullRequests []PullRequest `json:"pull_requests"`
 }
 
-// http://stackoverflow.com/questions/14426366/what-is-an-idiomatic-way-of-representing-enums-in-golang
-type PullRequestState string
-
-const (
-	OPEN     PullRequestState = "OPEN"
-	MERGED   PullRequestState = "MERGED"
-	REJECTED PullRequestState = "REJECTED"
-)
-
 type PullRequest struct {
-	AuthorLdap            string           `json:"author_ldap"`
-	AuthorFullName        string           `json:"author_fullname"`
-	Project               string           `json:"project"`
-	Repo                  string           `json:"repo"`
-	PullRequestId         int64            `json:"pull_request_id"`
-	Title                 string           `json:"title"`
-	CommentCount          int              `json:"comment_count"`
-	State                 PullRequestState `json:"state"`
-	Comments              []PrInteraction  `json:"comments"`
-	CreatedDateTime       int64            `json:"created_datetime"`
-	UpdatedDateTime       int64            `json:"updated_datetime"`
-	SecondsOpen           int64            `json:"seconds_open"`
-	CommentsByAuthorLdap  map[string]int   `json:"comments_by_author_ldap"`
-	ApprovalsByAuthorLdap map[string]int   `json:"approvals_by_author_ldap"`
+	AuthorLdap     string `json:"author_ldap"`
+	AuthorFullName string `json:"author_fullname"`
+	Project        string `json:"project"`
+	Repo           string `json:"repo"`
+	PullRequestId  int64  `json:"pull_request_id"`
+	Title          string `json:"title"`
+	CommentCount   int    `json:"comment_count"`
+	/* e.g. OPEN, MERGED, REJECTED */
+	State                 string          `json:"state"`
+	Comments              []PrInteraction `json:"comments"`
+	CreatedDateTime       int64           `json:"created_datetime"`
+	UpdatedDateTime       int64           `json:"updated_datetime"`
+	SecondsOpen           int64           `json:"seconds_open"`
+	CommentsByAuthorLdap  map[string]int  `json:"comments_by_author_ldap"`
+	ApprovalsByAuthorLdap map[string]int  `json:"approvals_by_author_ldap"`
 }
 
 // A comment or approval
