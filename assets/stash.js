@@ -45,7 +45,7 @@ var render = function() {
           var authorNode = {
             title: (count > 1 ? "" + count + " comments" : "" + count + " comment") + " by " + author +
             (is_approval ? " (approval)" : ""),
-            type: "comments", author: author, is_approval: is_approval
+            type: "comments", author: author, is_approval: is_approval, count: count
           };
           nodes.push(authorNode);
           links.push({source: authorNode, target: prNode, value: authorNode.count});
@@ -55,8 +55,8 @@ var render = function() {
         });
         nodes.unshift(prNode);
 
-        console.log(nodes);
-        console.log(links);
+        //console.log(nodes);
+        //console.log(links);
 
         var force = d3.layout.force()
             .charge(-100)
@@ -76,7 +76,7 @@ var render = function() {
             .data(links)
             .enter().append("line")
             .attr("class", "link")
-            .style("stroke-width", function(d) { return d.value;});
+            .style("stroke-width", function(d) { return 1.5 * d.value + "px";});
 
         var node = svg.selectAll(".node")
             .data(nodes)
