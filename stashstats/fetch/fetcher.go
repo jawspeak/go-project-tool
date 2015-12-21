@@ -19,9 +19,10 @@ import (
 )
 
 type fetchConfig struct {
-	LookBackDays int             `json:"look_back_days"`
-	Projects     []projectConfig `json:"stash_projects"`
-	Usernames    []string        `json:"stats_for_these_usernames"`
+	LookBackDays           int             `json:"look_back_days"`
+	Projects               []projectConfig `json:"stash_projects"`
+	Usernames              []string        `json:"stats_for_these_usernames"`
+	IgnoreCommentUsernames []string        `json:"ignore_comments_from_usernames"`
 }
 type projectConfig struct {
 	Project string   `json:"project"`
@@ -30,12 +31,13 @@ type projectConfig struct {
 
 // passing into a work channel which is rate limited.
 type fetchOneWork struct {
-	project       string
-	repo          string
-	author        string
-	resultChan    chan data.PullRequest
-	wg            *sync.WaitGroup
-	lookBackUntil int64
+	project              string
+	repo                 string
+	author               string
+	resultChan           chan data.PullRequest
+	wg                   *sync.WaitGroup
+	lookBackUntil        int64
+	ignoreCommentAuthors []string
 }
 
 const (
@@ -44,7 +46,7 @@ const (
 )
 
 func FetchData() (cache data.Cache) {
-	spew.Config.MaxDepth = 1 //
+	spew.Config.MaxDepth = 1
 
 	var conf fetchConfig
 	config.ParseJsonFileStripComments("./config.json", &conf)
@@ -72,11 +74,12 @@ func FetchData() (cache data.Cache) {
 			for _, confRepo := range confProjects.Repos {
 				wg.Add(1)
 				workChan <- fetchOneWork{project: confProjects.Project,
-					repo:          confRepo,
-					author:        confAuthor,
-					resultChan:    resultChan,
-					wg:            &wg,
-					lookBackUntil: lookBackUntil}
+					repo:                 confRepo,
+					author:               confAuthor,
+					resultChan:           resultChan,
+					wg:                   &wg,
+					lookBackUntil:        lookBackUntil,
+					ignoreCommentAuthors: conf.IgnoreCommentUsernames}
 				beNiceFuzzySleep()
 			}
 		}
@@ -162,33 +165,48 @@ func fetchOne(work *fetchOneWork) {
 			for _, activity := range activities.Payload.Values {
 				switch activity.Action {
 				case "COMMENTED":
-					flatten(&accum, activity.Comment, pr, commentsByAuthorLdap)
+					flatten(work.ignoreCommentAuthors, &accum, activity.Comment, pr,
+						commentsByAuthorLdap)
 				case "OPENED":
 				// ignore
 				case "APPROVED":
 					if approvedAt == nil || msToSec(activity.CreatedDate) > *approvedAt {
 						*approvedAt = msToSec(activity.CreatedDate)
 					}
+					if contains(work.ignoreCommentAuthors, activity.User.Slug) {
+						continue // Skip this activity.
+					}
+
+					// Mark the approval.
 					if _, ok := approvalsByAuthorLdap[activity.User.Slug]; !ok {
 						approvalsByAuthorLdap[activity.User.Slug] = 0
 					}
 					approvalsByAuthorLdap[activity.User.Slug] = approvalsByAuthorLdap[activity.User.Slug] + 1
+
+					// Mark the approval as a comment, too.
+					if _, ok := commentsByAuthorLdap[activity.User.Slug]; !ok {
+						commentsByAuthorLdap[activity.User.Slug] = 0
+					}
+					commentsByAuthorLdap[activity.User.Slug] = commentsByAuthorLdap[activity.User.Slug] + 1
+
 					accum = append(accum, data.PrInteraction{
 						Type:            "approval",
 						RefId:           activity.ID,
 						AuthorLdap:      activity.User.Slug,
+						AuthorFullName:  activity.User.DisplayName,
 						PullRequestId:   pr.ID,
 						CreatedDateTime: msToSec(activity.CreatedDate),
 						PrApproval:      true})
-					flatten(&accum, activity.Comment, pr, commentsByAuthorLdap)
+					flatten(work.ignoreCommentAuthors, &accum, activity.Comment, pr,
+						commentsByAuthorLdap)
 				case "RESCOPED":
-				// adding or removing of commits. don't care. ignore.
+					// adding or removing of commits. don't care. ignore.
 				case "MERGED":
-				// ignore
+					// ignore
 				case "DECLINED":
-				// ignore
+					// ignore
 				case "UNAPPROVED":
-				// ignore
+					// ignore
 				default:
 					log.Printf("---> see %s other action state: %#v\n", pr.ID, activity)
 				}
@@ -202,6 +220,7 @@ func fetchOne(work *fetchOneWork) {
 			fmt.Println("to push to resultChan")
 			work.resultChan <- data.PullRequest{
 				AuthorLdap:            pr.Author.User.Slug,
+				AuthorFullName:        pr.Author.User.DisplayName,
 				Project:               work.project,
 				Repo:                  work.repo,
 				PullRequestId:         pr.ID,
@@ -227,10 +246,13 @@ func msToSec(ms int64) int64 {
 	return ms / 1000
 }
 
-func flatten(accum *[]data.PrInteraction, input *models.Comment, contextPr *models.PullRequest,
-	commentsByAuthorLdap map[string]int) {
+func flatten(ignoreCommentAuthors []string, accum *[]data.PrInteraction, input *models.Comment,
+	contextPr *models.PullRequest, commentsByAuthorLdap map[string]int) {
 	if input == nil {
 		return // skip empty comments (e.g. in Approved activities
+	}
+	if contains(ignoreCommentAuthors, input.Author.Slug) {
+		return // ignore comments, and comment threads started by these authors
 	}
 	if _, ok := commentsByAuthorLdap[input.Author.Slug]; !ok {
 		commentsByAuthorLdap[input.Author.Slug] = 0
@@ -240,12 +262,13 @@ func flatten(accum *[]data.PrInteraction, input *models.Comment, contextPr *mode
 		Type:            "comment",
 		RefId:           input.ID,
 		AuthorLdap:      input.Author.Slug,
+		AuthorFullName:  input.Author.DisplayName,
 		PullRequestId:   contextPr.ID,
 		CreatedDateTime: msToSec(input.CreatedDate),
 		PrApproval:      false, // comments don't have approvals
 	})
 	for _, nested := range input.Comments {
-		flatten(accum, nested, contextPr, commentsByAuthorLdap)
+		flatten(ignoreCommentAuthors, accum, nested, contextPr, commentsByAuthorLdap)
 	}
 }
 
@@ -253,6 +276,15 @@ func okIf404(err error) bool {
 	if apiErr, ok := err.(operations.APIError); ok {
 		if apiErr.Code == 404 {
 			fmt.Println("404 Not Found - skipping", apiErr)
+			return true
+		}
+	}
+	return false
+}
+
+func contains(haystack []string, needle string) bool {
+	for _, hay := range haystack {
+		if hay == needle {
 			return true
 		}
 	}

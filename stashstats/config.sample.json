@@ -24,5 +24,10 @@
     "jochan",
     "xin",
     "rajeev"
+  ],
+
+  // Maybe you have a tool that comments on every PR - add the name here to ignore.
+  "ignore_comments_from_usernames": [
+    "some-robot-account"
   ]
 }

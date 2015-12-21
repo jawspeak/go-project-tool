@@ -24,6 +24,7 @@ const (
 
 type PullRequest struct {
 	AuthorLdap            string           `json:"author_ldap"`
+	AuthorFullName        string           `json:"author_fullname"`
 	Project               string           `json:"project"`
 	Repo                  string           `json:"repo"`
 	PullRequestId         int64            `json:"pull_request_id"`
@@ -41,6 +42,7 @@ type PullRequest struct {
 // A comment or approval
 type PrInteraction struct {
 	AuthorLdap      string `json:"author_ldap"`
+	AuthorFullName  string `json:"author_fullname"`
 	PullRequestId   int64  `json:"pull_request_id"`
 	CreatedDateTime int64  `json:"created_datetime"`
 	PrApproval      bool   `json:"approved"`
