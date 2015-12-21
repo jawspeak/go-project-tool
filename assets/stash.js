@@ -97,7 +97,14 @@ var render = function() {
           .links(links)
           .start();
 
-      var svg = personContainer
+      var prDiv = personContainer
+          .append("div")
+          .attr("class", onePr.state === "OPEN" ? "pr-container unmerged" : "pr-container")
+          .append("a")
+          .attr("href", onePr.self_url);
+      prDiv.append("div").append("small").text(onePr.title);
+
+      var svg = prDiv
           .append("svg")
           .attr("width", width)
           .attr("height", height);
@@ -161,8 +168,3 @@ var render = function() {
 };
 
 render();
-
-
-/*
-
- */

@@ -29,6 +29,7 @@ type PullRequest struct {
 	SecondsOpen           int64           `json:"seconds_open"`
 	CommentsByAuthorLdap  map[string]int  `json:"comments_by_author_ldap"`
 	ApprovalsByAuthorLdap map[string]int  `json:"approvals_by_author_ldap"`
+	SelfUrl               string          `json:"self_url"`
 }
 
 // A comment or approval

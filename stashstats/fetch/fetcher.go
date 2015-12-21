@@ -237,7 +237,8 @@ func fetchOne(work *fetchOneWork) {
 				SecondsOpen:           msToSec(pr.UpdatedDate - pr.CreatedDate),
 				CommentsByAuthorLdap:  commentsByAuthorLdap,
 				ApprovalsByAuthorLdap: approvalsByAuthorLdap,
-				State: pr.State,
+				State:   pr.State,
+				SelfUrl: pr.Links.Self[0].Href,
 			}
 			work.wg.Add(1)
 			fmt.Println("pushed to resultChan")
