@@ -41,8 +41,8 @@ type fetchOneWork struct {
 }
 
 const (
-	LIMIT           int64 = 25 // How many to fetch at a time
-	MAX_CONCURRENCY       = 20
+	LIMIT           int64 = 50 // How many to fetch at a time
+	MAX_CONCURRENCY       = 30
 )
 
 func FetchData() (cache data.Cache) {

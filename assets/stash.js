@@ -58,7 +58,7 @@ var render = function() {
 
     var ul = personContainer.append("ul");
     ul.append("li").text("" + stats.prs.length + " PRs").append("small").text(" (" + merged + " merged)");
-    ul.append("li").text("Commented in " + stats.others_prs_commented_in + " other people's PRs ")
+    ul.append("li").text("Commented in " + stats.others_prs_commented_in + " PRs for other people ")
         .append("small").text("(Approved " + stats.others_prs_approved + " PR's, left "
         + stats.total_comments_left + " total comments)");
     return personContainer;
